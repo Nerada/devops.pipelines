@@ -27,13 +27,14 @@ jobs:
       script: 'iex (iwr https://raw.githubusercontent.com/Nerada/devops.resharper/master/ReSharperCodeAnalysisScript.ps1)'
 
   - task: DeleteFiles@1
-    displayName: 'Delete ReSharper from staging directory'
+    displayName: 'ReSharper delete from staging directory'
     inputs:
       sourceFolder: '$(Build.ArtifactStagingDirectory)'
       contents: |
         **/*
 
   - task: VSBuild@1
+    displayName: 'Build'
     inputs:
       solution: '**/*.sln'
       platform: '${{parameters.buildPlatform}}'
@@ -41,6 +42,7 @@ jobs:
       msbuildArgs: '/p:TreatWarningsAsErrors="true"'
 
   - task: VSTest@2
+    displayName: 'Test'
     inputs:
       testAssemblyVer2: |
         **/*tests.dll
@@ -64,6 +66,7 @@ jobs:
       FlattenFolders: true
 
   - task: PublishBuildArtifacts@1
+    displayName: 'Publish artifacts'
     inputs:
       PathtoPublish: '$(Build.ArtifactStagingDirectory)'
       ArtifactName: '${{parameters.solutionName}}_${{parameters.version}}'
