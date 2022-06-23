@@ -5,6 +5,8 @@ parameters:
   type: string
 - name: buildConfiguration
   type: string
+- name: buildFolderName
+  type: string
 - name: version
   type: string
 
@@ -57,9 +59,9 @@ jobs:
     displayName: 'Copy build to staging directory'
     inputs:
       Contents: |
-          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.exe
-          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.dll
-          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.runtimeconfig.json
+          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.exe
+          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.dll
+          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.runtimeconfig.json
           !**/ref/**
           !**/win-x64/**
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
