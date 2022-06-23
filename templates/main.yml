@@ -1,0 +1,70 @@
+parameters:
+- name: solutionName
+  type: string
+- name: buildPlatform
+  type: string
+- name: buildConfiguration
+  type: string
+- name: version
+  type: string
+
+jobs:
+- job: default
+  displayName: 'Default job'
+  timeoutInMinutes: 15
+  steps:
+  - task: NuGetToolInstaller@1
+
+  - task: NuGetCommand@2
+    inputs:
+      restoreSolution: '**/*.sln'
+
+  - task: PowerShell@2
+    displayName: 'ReSharper code analysis'
+    timeoutInMinutes: 5
+    inputs:
+      targetType: 'inline'
+      script: 'iex (iwr https://raw.githubusercontent.com/Nerada/devops.resharper/master/ReSharperCodeAnalysisScript.ps1)'
+
+  - task: DeleteFiles@1
+    displayName: 'Delete ReSharper from staging directory'
+    inputs:
+      sourceFolder: '$(Build.ArtifactStagingDirectory)'
+      contents: |
+        **/*
+
+  - task: VSBuild@1
+    inputs:
+      solution: '**/*.sln'
+      platform: '${{parameters.buildPlatform}}'
+      configuration: '${{parameters.buildConfiguration}}'
+      msbuildArgs: '/p:TreatWarningsAsErrors="true"'
+
+  - task: VSTest@2
+    inputs:
+      testAssemblyVer2: |
+        **/*tests.dll
+        !**/*TestPlatform*.dll
+        !**/obj/**
+        !**/ref/**
+      platform: '${{parameters.buildPlatform}}'
+      configuration: '${{parameters.buildConfiguration}}'
+      codeCoverageEnabled: True
+
+  - task: CopyFiles@2
+    displayName: 'Copy build to staging directory'
+    inputs:
+      Contents: |
+          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.exe
+          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.dll
+          **/${{parameters.solutionName}}/bin/${{parameters.buildConfiguration}}/**/*.runtimeconfig.json
+          !**/ref/**
+          !**/win-x64/**
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      FlattenFolders: true
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: '${{parameters.solutionName}}_${{parameters.version}}'
+      publishLocation: 'Container'
