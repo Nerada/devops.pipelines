@@ -15,12 +15,31 @@ jobs:
   displayName: 'Default job'
   timeoutInMinutes: 15
   steps:
+  - task: PowerShell@2
+    displayName: 'Display job Info'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Max 15 min build:"
+        echo "1. ReSharper static code analysis"
+        echo "2. Run unit tests & create coverage reports"
+        echo "3. Build"
+        echo "4. Publish build"
+        echo "5. Publish coverage"
+        echo "6. Build warnings check"
+        echo ""
+        dotnet --info
+  
   - task: NuGetToolInstaller@1
-
+    displayName: 'NuGet tool installer'
   - task: NuGetCommand@2
+    displayName: 'NuGet restore solution'
     inputs:
       restoreSolution: '**/*.sln'
 
+#-------------------------------
+# 1 ReSharper
+#-------------------------------
   - task: PowerShell@2
     displayName: 'ReSharper code analysis'
     timeoutInMinutes: 5
@@ -35,41 +54,76 @@ jobs:
       contents: |
         **/*
 
-  - task: VSBuild@1
-    displayName: 'Build'
+#-------------------------------
+# 2 Test & Coverage: Generate reports
+# https://stackoverflow.com/a/64822458
+#-------------------------------
+  # 3.1 Run tests and measure coverage
+  # 'verbosity normal' ensures the result of each unit test is printed in the log
+  - task: DotNetCoreCLI@2
+    displayName: 'Unit tests & coverage'
+    continueOnError: true
     inputs:
-      solution: '**/*.sln'
-      platform: '${{parameters.buildPlatform}}'
-      configuration: '${{parameters.buildConfiguration}}'
-      msbuildArgs: '/p:TreatWarningsAsErrors="true"'
-
-  - task: VSTest@2
-    displayName: 'Test'
-    inputs:
-      testAssemblyVer2: |
-        **/*tests.dll
-        !**/*TestPlatform*.dll
+      command: test
+      projects: |
+        **/*.tests.csproj
         !**/obj/**
         !**/ref/**
-      platform: '${{parameters.buildPlatform}}'
-      configuration: '${{parameters.buildConfiguration}}'
-      codeCoverageEnabled: True
-
-  - task: CopyFiles@2
-    displayName: 'Copy build to staging directory'
+      arguments: >-
+        --configuration ${{parameters.buildConfiguration}} 
+        --no-build
+        --collect "XPlat Code Coverage"
+        --logger "console;verbosity=normal"
+        -- 
+        DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+  # 3.2 Coverage: Make Cobertura reports to be used for summary and make html reports to be displayed in AzureDevOps
+  # https://github.com/danielpalme/ReportGenerator/wiki/Integration#azure-devops-extension
+  - task: reportgenerator@5
+    displayName: 'Create coverage reports for Azure'
     inputs:
-      Contents: |
-          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.exe
-          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.dll
-          **/${{parameters.solutionName}}/${{parameters.buildFolderName}}/${{parameters.buildConfiguration}}/**/*.runtimeconfig.json
-          !**/ref/**
-          !**/win-x64/**
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-      FlattenFolders: true
+      reports: '$(Agent.TempDirectory)/*/coverage.opencover.xml'
+      targetdir: 'reports'
+      reporttypes: 'Cobertura;HtmlInline_AzurePipelines_Dark'
+        
+#-------------------------------
+# 3 Build 
+#-------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: 'Build ${{parameters.solutionName}}_${{parameters.version}}'
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: '**/*.csproj'
+      arguments: >-
+        --configuration ${{parameters.buildConfiguration}} 
+        --runtime win-x64 
+        --self-contained true 
+        --output $(build.artifactstagingdirectory) 
+        /warnaserror
 
+#-------------------------------
+# 4 Publish Build 
+#-------------------------------
   - task: PublishBuildArtifacts@1
-    displayName: 'Publish artifacts'
+    displayName: 'Publish ${{parameters.solutionName}}_${{parameters.version}}'
     inputs:
-      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
       ArtifactName: '${{parameters.solutionName}}_${{parameters.version}}'
-      publishLocation: 'Container'
+      
+#-------------------------------
+# 5 Publish Coverage
+#-------------------------------
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish coverage to Azure'
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(system.defaultworkingdirectory)\reports\Cobertura.xml'
+      reportDirectory: '$(system.defaultworkingdirectory)\reports'
+        
+#-------------------------------
+# 6 Fail on issues
+#-------------------------------
+  - bash: |
+      echo AGENT_JOBSTATUS = $AGENT_JOBSTATUS
+      if [[ "$AGENT_JOBSTATUS" == "SucceededWithIssues" ]]; then exit 1; fi
+    displayName: Fail build if partially successful
