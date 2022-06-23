@@ -1,11 +1,9 @@
 parameters:
 - name: solutionName
   type: string
-- name: buildPlatform
+- name: buildFolderName
   type: string
 - name: buildConfiguration
-  type: string
-- name: buildFolderName
   type: string
 - name: version
   type: string
@@ -22,8 +20,8 @@ jobs:
       script: |
         echo "Max 15 min build:"
         echo "1. ReSharper static code analysis"
-        echo "2. Run unit tests & create coverage reports"
-        echo "3. Build"
+        echo "2. Build"
+        echo "3. Run unit tests & create coverage reports"
         echo "4. Publish build"
         echo "5. Publish coverage"
         echo "6. Build warnings check"
@@ -55,22 +53,36 @@ jobs:
         **/*
 
 #-------------------------------
-# 2 Test & Coverage: Generate reports
+# 2 Build
+#-------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: 'DotNet Build'
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
+      arguments: >-
+        --configuration ${{parameters.buildConfiguration}} 
+        --runtime win-x64
+        --self-contained false
+        /warnaserror
+
+#-------------------------------
+# 3 Test & Coverage: Generate reports
 # https://stackoverflow.com/a/64822458
 #-------------------------------
   # 3.1 Run tests and measure coverage
   # 'verbosity normal' ensures the result of each unit test is printed in the log
   - task: DotNetCoreCLI@2
-    displayName: 'Unit tests & coverage'
+    displayName: 'DotNet tests'
     continueOnError: true
     inputs:
       command: test
       projects: |
-        **/*.tests.csproj
+        **/win-x64/*.tests.csproj
         !**/obj/**
         !**/ref/**
       arguments: >-
-        --configuration ${{parameters.buildConfiguration}} 
+        --configuration ${{parameters.buildConfiguration}}
         --no-build
         --collect "XPlat Code Coverage"
         --logger "console;verbosity=normal"
@@ -84,26 +96,23 @@ jobs:
       reports: '$(Agent.TempDirectory)/*/coverage.opencover.xml'
       targetdir: 'reports'
       reporttypes: 'Cobertura;HtmlInline_AzurePipelines_Dark'
-        
-#-------------------------------
-# 3 Build 
-#-------------------------------
-  - task: DotNetCoreCLI@2
-    displayName: 'Build ${{parameters.solutionName}}_${{parameters.version}}'
-    inputs:
-      command: 'publish'
-      publishWebProjects: false
-      projects: '**/*.csproj'
-      arguments: >-
-        --configuration ${{parameters.buildConfiguration}} 
-        --runtime win-x64 
-        --self-contained true 
-        --output $(build.artifactstagingdirectory) 
-        /warnaserror
 
 #-------------------------------
 # 4 Publish Build 
 #-------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: 'DotNet Publish'
+    inputs:
+      command: 'publish'
+      projects: '**/*.csproj'
+      arguments: >-
+        --configuration ${{parameters.buildConfiguration}} 
+        --runtime win-x64
+        --self-contained true 
+        --no-build
+        --output $(build.artifactstagingdirectory) 
+        /warnaserror
+        
   - task: PublishBuildArtifacts@1
     displayName: 'Publish ${{parameters.solutionName}}_${{parameters.version}}'
     inputs:
