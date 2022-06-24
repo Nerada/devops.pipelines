@@ -1,12 +1,20 @@
 parameters:
 - name: solutionName
   type: string
-- name: buildFolderName
-  type: string
-- name: buildConfiguration
-  type: string
 - name: version
   type: string
+- name: buildFolderName
+  type: string
+  default: 'bin'
+- name: buildConfiguration
+  type: string
+  default: 'Release'
+- name: singleFileBuild
+  type: boolean
+  default: true
+- name: containsTests
+  type: boolean
+  default: true
 
 jobs:
 - job: default
@@ -30,6 +38,7 @@ jobs:
   
   - task: NuGetToolInstaller@1
     displayName: 'NuGet tool installer'
+    
   - task: NuGetCommand@2
     displayName: 'NuGet restore solution'
     inputs:
@@ -56,42 +65,70 @@ jobs:
 # 2 Build
 #-------------------------------
   - task: DotNetCoreCLI@2
-    displayName: 'DotNet Build'
+    displayName: 'DotNet Build Project'
     inputs:
-      command: 'build'
-      projects: '**/*.csproj'
+      command: 'publish'
+      projects: |
+        **/*.csproj
+        !**/*.tests.csproj
+      publishWebProjects: false
+      zipAfterPublish: false
+      modifyOutputPath: false
       arguments: >-
         --configuration ${{parameters.buildConfiguration}} 
         --runtime win-x64
-        --self-contained false
+        --self-contained false 
+        --output $(build.artifactstagingdirectory) 
+        -p:PublishSingleFile=${{parameters.singleFileBuild}}
+        -p:DebugType=None
+        -p:DebugSymbols=false
+        -p:Version=${{parameters.version}}
         /warnaserror
 
 #-------------------------------
 # 3 Test & Coverage: Generate reports
 # https://stackoverflow.com/a/64822458
 #-------------------------------
+  # 3.0 Build test project(s)
+  - task: DotNetCoreCLI@2
+    displayName: 'DotNet Build Tests'
+    condition: eq(${{parameters.containsTests}}, 'true')
+    inputs:
+      command: 'build'
+      projects: |
+        **/*.tests.csproj
+      arguments: >-
+        --configuration ${{parameters.buildConfiguration}} 
+        --runtime win-x64
+        --self-contained false
+        /warnaserror
+        
   # 3.1 Run tests and measure coverage
   # 'verbosity normal' ensures the result of each unit test is printed in the log
   - task: DotNetCoreCLI@2
-    displayName: 'DotNet tests'
+    displayName: 'DotNet Run Test'
+    condition: eq(${{parameters.containsTests}}, 'true')
     continueOnError: true
     inputs:
-      command: test
+      command: 'test'
       projects: |
-        **/win-x64/*.tests.csproj
+        **/*.tests.csproj
         !**/obj/**
         !**/ref/**
       arguments: >-
         --configuration ${{parameters.buildConfiguration}}
+        --runtime win-x64
         --no-build
         --collect "XPlat Code Coverage"
         --logger "console;verbosity=normal"
         -- 
         DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+        
   # 3.2 Coverage: Make Cobertura reports to be used for summary and make html reports to be displayed in AzureDevOps
   # https://github.com/danielpalme/ReportGenerator/wiki/Integration#azure-devops-extension
   - task: reportgenerator@5
     displayName: 'Create coverage reports for Azure'
+    condition: eq(${{parameters.containsTests}}, 'true')
     inputs:
       reports: '$(Agent.TempDirectory)/*/coverage.opencover.xml'
       targetdir: 'reports'
@@ -100,19 +137,6 @@ jobs:
 #-------------------------------
 # 4 Publish Build 
 #-------------------------------
-  - task: DotNetCoreCLI@2
-    displayName: 'DotNet Publish'
-    inputs:
-      command: 'publish'
-      projects: '**/*.csproj'
-      arguments: >-
-        --configuration ${{parameters.buildConfiguration}} 
-        --runtime win-x64
-        --self-contained true 
-        --no-build
-        --output $(build.artifactstagingdirectory) 
-        /warnaserror
-        
   - task: PublishBuildArtifacts@1
     displayName: 'Publish ${{parameters.solutionName}}_${{parameters.version}}'
     inputs:
@@ -124,10 +148,12 @@ jobs:
 #-------------------------------
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish coverage to Azure'
+    condition: eq(${{parameters.containsTests}}, 'true')
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: '$(system.defaultworkingdirectory)\reports\Cobertura.xml'
       reportDirectory: '$(system.defaultworkingdirectory)\reports'
+      failIfCoverageEmpty: false
         
 #-------------------------------
 # 6 Fail on issues

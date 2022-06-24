@@ -171,4 +171,5 @@ Created on: $CREATED_YEAR$$CREATED_MONTH$$CREATED_DAY$&#xD;
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Requestor/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=suppressions/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Templated/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=AWAYMODE/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>
 	
