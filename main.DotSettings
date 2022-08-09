@@ -188,6 +188,8 @@
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=AWAYMODE/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Kata/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Usings/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=Autorun/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=writeable/@EntryIndexedValue">True</s:Boolean>
 	
 	<s:String x:Key="/Default/CodeStyle/FileHeader/FileHeaderText/@EntryValue">-----------------------------------------------&#xD;
     Author: $USER_NAME$&#xD;
