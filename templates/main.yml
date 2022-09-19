@@ -80,6 +80,7 @@ jobs:
         --self-contained false 
         --output $(build.artifactstagingdirectory) 
         -p:PublishSingleFile=${{parameters.singleFileBuild}}
+        -p:IncludeNativeLibrariesForSelfExtract=true
         -p:DebugType=None
         -p:DebugSymbols=false
         -p:Version=${{parameters.version}}
