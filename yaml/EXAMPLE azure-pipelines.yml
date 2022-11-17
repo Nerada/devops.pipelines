@@ -1,0 +1,31 @@
+# .NET Desktop
+# Build and run tests for .NET Desktop or Windows classic desktop solutions.
+# Add steps that publish symbols, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
+
+trigger:
+- master
+- features/*
+
+variables:
+  disable.coverage.autogenerate: 'true' # We overwrite the coverage report generation
+
+pool:
+  vmImage: 'windows-latest'
+
+resources:
+  repositories:
+    - repository: devops.pipelines
+      type: github
+      name: Nerada/devops.pipelines
+      endpoint: Nerada #Setup in Azure=>Project settings=>Service connections
+
+stages:
+- stage: rl0_stage
+  displayName: 'RL0 - Code quality checks & build'
+  jobs:
+  - template: yaml/main.yml@devops.pipelines
+    parameters:
+      solutionName: 'MyHappySolution'
+      version: '0.1.0.$(Build.BuildId)'
+      containsTests: 'false'
