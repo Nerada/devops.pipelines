@@ -45,7 +45,18 @@ jobs:
       restoreSolution: '**/*.sln'
 
 #-------------------------------
-# 1 ReSharper
+# 1 Get build variables
+#-------------------------------
+  - task: PowerShell@2
+    name: step1
+    displayName: 'Fetch build variables'
+    timeoutInMinutes: 5
+    inputs:
+      targetType: 'inline'
+      script: 'Write-Host "##vso[task.setvariable variable=MetaData;isOutput=true]" & ([scriptblock]::Create((Invoke-WebRequest https://raw.githubusercontent.com/Nerada/devops.pipelines/master/build-scripts/buildMetaData.ps1 -UseBasicParsing).Content)) -officialBuild official-build'
+
+#-------------------------------
+# 2 ReSharper
 #-------------------------------
   - task: PowerShell@2
     displayName: 'ReSharper code analysis'
@@ -62,7 +73,7 @@ jobs:
         **/*
 
 #-------------------------------
-# 2 Build
+# 3 Build
 #-------------------------------
   - task: DotNetCoreCLI@2
     displayName: 'DotNet Build Project'
@@ -84,13 +95,14 @@ jobs:
         -p:DebugType=None
         -p:DebugSymbols=false
         -p:Version=${{parameters.version}}
+        -p:SourceRevisionId="$(step1.MetaData)" 
         /warnaserror
 
 #-------------------------------
-# 3 Test & Coverage: Generate reports
+# 4 Test & Coverage: Generate reports
 # https://stackoverflow.com/a/64822458
 #-------------------------------
-  # 3.0 Build test project(s)
+  # 4.0 Build test project(s)
   - task: DotNetCoreCLI@2
     displayName: 'DotNet Build Tests'
     condition: eq(${{parameters.containsTests}}, 'true')
@@ -104,7 +116,7 @@ jobs:
         --self-contained false
         /warnaserror
         
-  # 3.1 Run tests and measure coverage
+  # 4.1 Run tests and measure coverage
   # 'verbosity normal' ensures the result of each unit test is printed in the log
   - task: DotNetCoreCLI@2
     displayName: 'DotNet Run Test'
@@ -125,7 +137,7 @@ jobs:
         -- 
         DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
         
-  # 3.2 Coverage: Make Cobertura reports to be used for summary and make html reports to be displayed in AzureDevOps
+  # 4.2 Coverage: Make Cobertura reports to be used for summary and make html reports to be displayed in AzureDevOps
   # https://github.com/danielpalme/ReportGenerator/wiki/Integration#azure-devops-extension
   - task: reportgenerator@5
     displayName: 'Create coverage reports for Azure'
@@ -136,7 +148,7 @@ jobs:
       reporttypes: 'Cobertura;HtmlInline_AzurePipelines_Dark'
 
 #-------------------------------
-# 4 Publish Build 
+# 5 Publish Build 
 #-------------------------------
   - task: PublishBuildArtifacts@1
     displayName: 'Publish ${{parameters.solutionName}}_${{parameters.version}}'
@@ -145,7 +157,7 @@ jobs:
       ArtifactName: '${{parameters.solutionName}}_${{parameters.version}}'
       
 #-------------------------------
-# 5 Publish Coverage
+# 6 Publish Coverage
 #-------------------------------
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish coverage to Azure'
@@ -157,7 +169,7 @@ jobs:
       failIfCoverageEmpty: false
         
 #-------------------------------
-# 6 Fail on issues
+# 7 Fail on issues
 #-------------------------------
   - bash: |
       echo AGENT_JOBSTATUS = $AGENT_JOBSTATUS
