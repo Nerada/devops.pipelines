@@ -45,15 +45,18 @@ jobs:
       restoreSolution: '**/*.sln'
 
 #-------------------------------
-# 1 Get build variables
+# 1 Get build variables 
+# https://microsoft-bitools.blogspot.com/2021/02/devops-snack-change-powershell-version.html
 #-------------------------------
   - task: PowerShell@2
-    name: step1
     displayName: 'Fetch build variables'
     timeoutInMinutes: 5
     inputs:
       targetType: 'inline'
-      script: 'Write-Host "##vso[task.setvariable variable=MetaData;isOutput=true]" & ([scriptblock]::Create((Invoke-WebRequest https://raw.githubusercontent.com/Nerada/devops.pipelines/master/build-scripts/buildMetaData.ps1 -UseBasicParsing).Content)) -officialBuild official-build'
+      script: |
+        $scriptLocation = 'https://raw.githubusercontent.com/Nerada/devops.pipelines/master/build-scripts/buildMetaData.ps1'
+        $metaData = Invoke-Command -ArgumentList official-build -ScriptBlock ([Scriptblock]::Create(((Invoke-WebRequest -Uri $scriptLocation -UseBasicParsing).Content)))
+        Write-Host "##vso[task.setvariable variable=buildMetaData;isreadonly=true;]$metaData"
 
 #-------------------------------
 # 2 ReSharper
@@ -63,7 +66,7 @@ jobs:
     timeoutInMinutes: 5
     inputs:
       targetType: 'inline'
-      script: 'iex (iwr https://raw.githubusercontent.com/Nerada/devops.resharper/master/ReSharperCodeAnalysisScript.ps1)'
+      script: 'Invoke-Expression (Invoke-WebRequest https://raw.githubusercontent.com/Nerada/devops.resharper/master/ReSharperCodeAnalysisScript.ps1)'
 
   - task: DeleteFiles@1
     displayName: 'ReSharper delete from staging directory'
@@ -95,7 +98,7 @@ jobs:
         -p:DebugType=None
         -p:DebugSymbols=false
         -p:Version=${{parameters.version}}
-        -p:SourceRevisionId="$(step1.MetaData)" 
+        -p:SourceRevisionId=$(buildMetaData)
         /warnaserror
 
 #-------------------------------
