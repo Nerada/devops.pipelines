@@ -28,11 +28,12 @@ jobs:
       script: |
         echo "Max 15 min build:"
         echo "1. ReSharper static code analysis"
-        echo "2. Build"
-        echo "3. Run unit tests & create coverage reports"
-        echo "4. Publish build"
-        echo "5. Publish coverage"
-        echo "6. Build warnings check"
+        echo "2. Snyk security analysis"
+        echo "3. Build"
+        echo "4. Run unit tests & create coverage reports"
+        echo "5. Publish build"
+        echo "6. Publish coverage"
+        echo "7. Build warnings check"
         echo ""
         dotnet --info
   
@@ -45,7 +46,7 @@ jobs:
       restoreSolution: '**/*.sln'
 
 #-------------------------------
-# 1 Get build variables 
+# 0 Get build variables 
 # https://microsoft-bitools.blogspot.com/2021/02/devops-snack-change-powershell-version.html
 #-------------------------------
   - task: PowerShell@2
@@ -59,7 +60,7 @@ jobs:
         Write-Host "##vso[task.setvariable variable=buildMetaData;isreadonly=true;]$metaData"
 
 #-------------------------------
-# 2 ReSharper
+# 1 ReSharper
 #-------------------------------
   - task: PowerShell@2
     displayName: 'ReSharper code analysis'
@@ -74,6 +75,19 @@ jobs:
       sourceFolder: '$(Build.ArtifactStagingDirectory)'
       contents: |
         **/*
+
+#-------------------------------
+# 2 Snyk
+#-------------------------------
+  - task: SnykSecurityScan@1
+    displayName: 'Sneak security analysis'
+    inputs:
+      testType: 'app'
+      monitorWhen: 'always'
+      projectName: ${{parameters.solutionName}}
+      failOnIssues: true
+      additionalArguments: >-
+        --all-projects
 
 #-------------------------------
 # 3 Build
