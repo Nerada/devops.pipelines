@@ -82,6 +82,7 @@ jobs:
   - task: SnykSecurityScan@1
     displayName: 'Snyk security analysis'
     inputs:
+      serviceConnectionEndpoint: 'Snyk'
       testType: 'app'
       monitorWhen: 'always'
       projectName: ${{parameters.solutionName}}
