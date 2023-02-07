@@ -80,7 +80,7 @@ jobs:
 # 2 Snyk
 #-------------------------------
   - task: SnykSecurityScan@1
-    displayName: 'Sneak security analysis'
+    displayName: 'Snyk security analysis'
     inputs:
       testType: 'app'
       monitorWhen: 'always'
