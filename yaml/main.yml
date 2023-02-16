@@ -87,8 +87,6 @@ jobs:
       monitorWhen: 'always'
       projectName: ${{parameters.solutionName}}
       failOnIssues: true
-      additionalArguments: >-
-        --all-projects
 
 #-------------------------------
 # 3 Build
