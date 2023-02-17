@@ -27,8 +27,8 @@ jobs:
       targetType: 'inline'
       script: |
         echo "Max 15 min build:"
-        echo "1. ReSharper static code analysis"
-        echo "2. Snyk security analysis"
+        echo "1. Snyk security analysis"
+        echo "2. ReSharper static code analysis"
         echo "3. Build"
         echo "4. Run unit tests & create coverage reports"
         echo "5. Publish build"
@@ -60,7 +60,23 @@ jobs:
         Write-Host "##vso[task.setvariable variable=buildMetaData;isreadonly=true;]$metaData"
 
 #-------------------------------
-# 1 ReSharper
+# 1 Snyk
+#-------------------------------
+  - task: SnykSecurityScan@1
+    displayName: 'Snyk security analysis'
+    inputs:
+      serviceConnectionEndpoint: 'Snyk'
+      testType: 'app'
+      testDirectory: '$(Build.SourcesDirectory)\${{parameters.solutionName}}'
+      monitorWhen: 'always'
+      additionalArguments: >-
+        --file=${{parameters.solutionName}}.sln
+        --fail-on=upgradable
+#      
+
+
+#-------------------------------
+# 2 ReSharper
 #-------------------------------
   - task: PowerShell@2
     displayName: 'ReSharper code analysis'
@@ -75,18 +91,6 @@ jobs:
       sourceFolder: '$(Build.ArtifactStagingDirectory)'
       contents: |
         **/*
-
-#-------------------------------
-# 2 Snyk
-#-------------------------------
-  - task: SnykSecurityScan@1
-    displayName: 'Snyk security analysis'
-    inputs:
-      serviceConnectionEndpoint: 'Snyk'
-      testType: 'app'
-      monitorWhen: 'always'
-      projectName: ${{parameters.solutionName}}
-      failOnIssues: true
 
 #-------------------------------
 # 3 Build
